@@ -1,130 +1,144 @@
-#Include ..\Bruno-Functions\bruno-functions.ahk
+#Include ..\Bruno-Functions\GetPageContent.ahk
+#Include ..\Bruno-Functions\JsonToIni.ahk
+#Include ..\Bruno-Functions\BatWrite.ahk
 
 /*
- @Credit samfisherirl (https://github.com/samfisherirl/github.ahk)
+@Credit to samfisherirl (https://github.com/samfisherirl/github.ahk)
 */
 Class Git {
-    __New(user, repo) {
-        this.url := "https://api.github.com/repos/" user "/" repo "/releases/latest"
-        this.body := DownloadToVar(this.url)
-        this.body := FormatJsonToSimpleArray(this.body)
-        if(this.body.Length < 2){
+    __New(p_user, p_repo) {
+        this.user := p_user
+        this.repo := p_repo
+        this.url := "https://api.github.com/repos/" this.user "/" this.repo "/releases/latest"
+        this.ini_path := A_AppData "\" this.user "\" this.repo "\github.ini"
+        this.body := GetPageContent(this.url)
+        this.body := JsonToIni(this.body, this.ini_path, "body")
+
+        if this.body == ""
+        {
             this.is_online := false
             return
         }
-        if(this.body[2] == "NotFound"){
-            this.is_online := false
-            return
+        try
+        {
+            if IniRead(this.ini_path, "body", "message") == "Not Found"
+            {
+                this.is_online := false
+                return
+            }
         }
         this.is_online := true
-        this.dl_url := GetKeyValueFromArray(this.body, "browser_download_url")
-        this.version := GetKeyValueFromArray(this.body, "tag_name")
+
+        this.assets := IniRead(this.ini_path, "body", "assets")
+        this.assets := JsonToIni(this.assets, this.ini_path, "assets", , true)
+
+        this.dl_url := IniRead(this.ini_path, "assets", "browser_download_url")
+
+        this.version := IniRead(this.ini_path, "body", "tag_name")
         this.version := StrSplit(this.version, "v")
         this.version := this.version[this.version.Length]
+
         this.extension := StrSplit(this.dl_url, ".")
         this.extension := this.extension[this.extension.Length]
     }
-    GetUrl(){
-        return this.url
-    }
-    GetBody(){
-        return this.body
-    }
-    GetDownloadUrl(){
-        return this.dl_url
-    }
-    Download(path_to_save, filename){
-        Download(this.dl_url, path_to_save "\" filename "." this.extension)
-    }
-    GetVersion(){
-        return this.version
-    }
-    GetExtension(){
-        return this.extension
-    }
-}
 
-/*
-Check on github for updates, for this to work there must be a release on the repository, 
-with the version on the end of the tag after a letter "v", such as this. "some-tag-doesnt-matter v0.10"
-IMPORTANT: There should be one or zero dots on the version. And any superior version should be a higher number
-EX: v0.11 > v0.10 BUT < v0.12.
-@Param &git_hub Reference to the github object.
-@Param version_file Path to the version ini file.
-*/
-CheckUpdates(&git_hub, version_file, download_where){
-    if(!git_hub.is_online){
-        return
+    Download(p_path_to_save, p_filename){
+        Download(this.dl_url, p_path_to_save "\" p_filename "." this.extension)
     }
-    if(IsUpdated(&git_hub ,version_file)){
-        return
+
+    /*
+    Checks if the current installed version is up to date with the github latest release.
+    @Param version The current installed version.
+    @Return True if updated or False if not updated.
+    */
+    IsUpdated(p_version){
+        if(this.is_online == false){
+            return true
+        }
+        if p_version < this.version{
+            return false
+        }
+        return true
     }
-    answer := MsgBox("Uma nova versão do app foi encontrada, deseja atualizar?", "Versão " git_hub.GetVersion() " encontrada","0x4")
-    if(answer == "Yes"){
-        UpdateApp(&git_hub, download_where, GetAppName(), , , version_file)
-        return
+
+    /*
+    Downloads from github and replaces the executable or script and creates a shortcut.
+    @Param p_install_path Where to install the update
+    */
+    UpdateApp(p_install_path){
+        ; baixar versao atualizada em temp
+        ; criar arquivo com nome FP-Extra-Updated.txt em temp com a mensagem de atualizacao
+        ; deletar arquivo bat em temp
+        ; escrever arquivo bat em temp
+        ; abrir arquivo bat
+        ; fechar app
+        ; o arquivo bat ira:
+        ; esperar 1 segundo para app fechar
+        ; deletar o app no working dir
+        ; mover o app para appdata
+        ; criar um shortcut do app na area de trabalho
+        ; abrir o app e fechar
+
+        ; O app aberto ira checar para ver se FP-Extra-Updated.txt existe em temp
+        ; Se sim irá ler a mensagem e mostrar ela. Logo apos ira apagar o arquivo.
+        ; Apagar o icone em appdata
+        ; baixar o icone em appdata e qualquer outro recurso que precisa ser atualizado
+        ; Isso apenas se conseguir baixar o icone, se nao mantem o antigo.
+
+        this.Download(A_Temp, this.repo)
+        FileAppend(IniRead(this.ini_path, "body", "body", "Successfully updated!"), A_Temp "\" this.repo "-Updated.txt")
+        bat_file := A_Temp "\update-bat.bat"
+        
+        bat_file := BatWrite(bat_file)
+        bat_file.TimeOut(1)
+        bat_file.DeleteFile(A_ScriptFullPath)
+        bat_file.MoveFile(A_Temp "\" this.repo "." this.extension
+        , p_install_path "\" this.repo "." this.extension)
+        bat_file.CreateShortcut(p_install_path "\" this.repo "." this.extension
+        , A_Desktop "\" this.repo ".lnk")
+        bat_file.Start(p_install_path "\" this.repo "." this.extension)
+
+        Run(bat_file.path, , "Hide")
+        ExitApp(1000)
+        
+        
+        
+        
+        
+        ; download_path := A_Temp "\" p_app_name "." p_git_hub.GetExtension()
+        ; If(FileExist(download_path != "")){
+        ;     FileDelete(download_path)
+        ; }
+        ; bat_file := A_Temp "\" p_app_name "_batch.bat"
+        ; if(FileExist(bat_file) != ""){
+        ;     FileDelete(bat_file)
+        ; }
+        ; ; Write batch
+        ; ; Download update
+        ; ; Update version
+        ; ; MsgBox
+        ; ; Run batch
+        ; ; ExitApp()
+        ; FileAppend("timeout /t 1 /nobreak",bat_file)
+
+        ; EnvSet("DeleteThisFile", A_WorkingDir "\" p_app_name "." p_git_hub.GetExtension())
+        ; FileAppend("`ndel `"%DeleteThisFile%`"",bat_file)
+
+        ; EnvSet("MoveThis", download_path)
+        ; EnvSet("MoveThere", A_WorkingDir)
+        ; FileAppend("`nmove /y `"%MoveThis%`" `"%MoveThere%`"",bat_file)
+
+        ; EnvSet("StartThis", A_WorkingDir "\" p_app_name "." p_git_hub.GetExtension())
+        ; FileAppend("`nstart `"`" `"%StartThis%`"",bat_file)
+        
+        ; FileAppend("`ntimeout /t 2 /nobreak",bat_file)
+        
+        ; p_git_hub.Download(A_Temp, p_app_name)
+
+        ; IniWrite p_git_hub.GetVersion(), p_version_path, "version", p_app_name
+
+        ; MsgBox("A Aplicação foi atualizada e será reiniciada automaticamente, apenas aguarde.", p_app_name " atualizado!")
+        ; Run(bat_file, , "Hide")
+        ; ExitApp()
     }
-    return
-}
-
-/*
-Checks if the current installed version is up to date with the github latest release.
-@Param &git_hub A reference to the github object.
-@Param version_file The path to the version ini file.
-@Return True if updated or False if not updated.
-*/
-IsUpdated(&git_hub ,version_file){
-    if(FileExist(version_file) == ""){
-        return false
-    }
-    if(IniRead(version_file, "version", GetAppName()) < git_hub.GetVersion()){
-        return false
-    }
-    return true
-}
-
-/*
-Downloads from github and replaces the executable or script
-@Param &git_hub A reference to a github object
-@Param app_name The executable's name on the directory
-@Param update_message TODO: The message to be shown after updating.
-@Param save_version TODO: Should save the version somewhere?
-@Param version_path Where to save the version, it should be a .ini file
-*/
-UpdateApp(&git_hub, download_where, app_name, update_message := "", save_version := true, version_path := A_MyDocuments "\" app_name ".ini"){
-    download_path := A_Temp "\" app_name "." git_hub.GetExtension()
-    If(FileExist(download_path != "")){
-        FileDelete(download_path)
-    }
-    bat_file := A_Temp "\" app_name "_batch.bat"
-    if(FileExist(bat_file) != ""){
-        FileDelete(bat_file)
-    }
-    ; Write batch
-    ; Download update
-    ; Update version
-    ; MsgBox
-    ; Run batch
-    ; ExitApp()
-    FileAppend("timeout /t 1 /nobreak",bat_file)
-
-    EnvSet("DeleteThisFile", A_WorkingDir "\" app_name "." git_hub.GetExtension())
-    FileAppend("`ndel `"%DeleteThisFile%`"",bat_file)
-
-    EnvSet("MoveThis", download_path)
-    EnvSet("MoveThere", A_WorkingDir)
-    FileAppend("`nmove /y `"%MoveThis%`" `"%MoveThere%`"",bat_file)
-
-    EnvSet("StartThis", A_WorkingDir "\" app_name "." git_hub.GetExtension())
-    FileAppend("`nstart `"`" `"%StartThis%`"",bat_file)
-    
-    FileAppend("`ntimeout /t 2 /nobreak",bat_file)
-    
-    git_hub.Download(A_Temp, app_name)
-
-    IniWrite git_hub.GetVersion(), version_path, "version", app_name
-
-    MsgBox("A Aplicação foi atualizada e será reiniciada automaticamente, apenas aguarde.", app_name " atualizado!")
-    Run(bat_file, , "Hide")
-    ExitApp()
 }
