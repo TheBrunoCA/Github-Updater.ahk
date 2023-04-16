@@ -76,7 +76,7 @@ Class Git{
             return false
 
         if !InStr(filename, ".")
-            filename .= this.extension
+            filename .= this.GetExtension()
 
         try{
             Download(this.latest_url, download_where "\" filename)
