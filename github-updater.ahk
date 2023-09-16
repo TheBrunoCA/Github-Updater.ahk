@@ -1,8 +1,4 @@
-#Include ..\Bruno-Functions\IsOnline.ahk
-#Include ..\Bruno-Functions\bruno-functions.ahk
-#Include ..\Bruno-Functions\Ini.ahk
-#Include ..\Bruno-Functions\GetPageContent.ahk
-#Include ..\Bruno-Functions\JsonToIni.ahk
+#Include ..\Bruno-Functions\ImportAllList.ahk
 
 Class Git{
     __New(username, repository, version := "tag_name", use_prefix := false, version_prefix := "v") {
@@ -71,6 +67,10 @@ Class Git{
         return this.__Load(this.url)
     }
 
+    ExitAppFunc(){
+        ExitApp()
+    }
+
     DownloadLatest(download_where, filename){
         if !this.online
             return false
@@ -79,7 +79,7 @@ Class Git{
             filename .= this.GetExtension()
 
         try{
-            Download(this.latest_url, download_where "\" filename)
+            downloadFile(this.latest_url, download_where "\" filename, , , this.ExitAppFunc)
             return true
         }
         catch Error as e{
