@@ -79,8 +79,9 @@ Class Git{
             filename .= this.GetExtension()
 
         try{
-            downloadFile(this.latest_url, download_where "\" filename, , , this.ExitAppFunc)
-            return true
+            path := download_where "\" filename
+            downloadFile(this.latest_url, path, , , this.ExitAppFunc)
+            return path
         }
         catch Error as e{
             return false
