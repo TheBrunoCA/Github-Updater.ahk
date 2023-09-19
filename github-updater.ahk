@@ -33,6 +33,8 @@ Class Git{
             this.extension := StrSplit(this.latest_url, ".")
             this.extension := this.extension[this.extension.Length]
             this.update_message := this.ini["body", "body"]
+            this.update_message := StrReplace(this.update_message, "\r", "`r")
+            this.update_message := StrReplace(this.update_message, "\n", "`n")
             this.online := true
             return true
         }
